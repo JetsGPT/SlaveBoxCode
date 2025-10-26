@@ -21,9 +21,7 @@
 - [Project Structure](#-project-structure)
 - [Getting Started](#-getting-started)
 - [Usage](#-usage)
-- [API Reference](#-api-reference)
 - [Adding New Sensors](#-adding-new-sensors)
-- [Contributing](#-contributing)
 
 ---
 
@@ -212,8 +210,6 @@ The `scanAndReadAllSensors()` function returns data in this structure:
 ```
 
 ---
-
-## 📚 API Reference
 
 ### SensorManager Functions
 
