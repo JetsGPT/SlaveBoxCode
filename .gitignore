@@ -1,0 +1,33 @@
+# Compiled files
+*.hex
+*.elf
+*.bin
+
+# Build and temporary folders
+build*/
+*.pio
+.pioenvs/
+.pio/
+.pioenvs
+.pio/build
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Arduino IDE specific
+*.eep
+*.map
+*.d
+*.lst
+
+# Backup files
+*~
+*.bak
+*.swp
+
+# Library folders (optional – see below)
+libraries/*/
+!libraries/README.md
