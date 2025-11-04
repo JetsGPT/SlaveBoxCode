@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "runSetup.h"
 #include "SensorManager.h"
+#include "BLEHelper.h"
 
 void setup() {
   runSetup();
@@ -19,6 +20,11 @@ void loop() {
   //  Serial.print("Temperature: "); Serial.println(temp);
   //  Serial.print("Humidity: "); Serial.println(humidity);
   //}
+
+  // Send sensor data over BLE (if connected)
+  if (bleHelper.isConnected()) {
+    bleHelper.sendMap(sensorData);
+  }
 
   delay(5000);
 }
