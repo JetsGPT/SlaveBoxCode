@@ -1,4 +1,4 @@
-# 📦 SlaveBox - ESP32 Sensor Hub
+# 📦 SlaveBox - ESP32 Sensor Hub (RoomSense)
 
 <div align="center">
 
@@ -6,8 +6,9 @@
 ![PlatformIO](https://img.shields.io/badge/PlatformIO-Enabled-orange?style=for-the-badge&logo=platformio)
 ![C++](https://img.shields.io/badge/C++-Code-00599C?style=for-the-badge&logo=cplusplus)
 ![I2C](https://img.shields.io/badge/I2C-Protocol-green?style=for-the-badge)
+![BLE](https://img.shields.io/badge/BLE-Bluetooth_5.0-blue?style=for-the-badge&logo=bluetooth)
 
-**A modular ESP32-based multi-sensor data acquisition system**
+**A modular ESP32-based multi-sensor data acquisition system with BLE connectivity and OLED display**
 
 </div>
 
@@ -18,16 +19,19 @@
 - [Overview](#-overview)
 - [Features](#-features)
 - [Supported Sensors](#-supported-sensors)
+- [Hardware Components](#-hardware-components)
 - [Project Structure](#-project-structure)
 - [Getting Started](#-getting-started)
 - [Usage](#-usage)
+- [BLE Communication](#-ble-communication)
+- [OLED Display](#-oled-display)
 - [Adding New Sensors](#-adding-new-sensors)
 
 ---
 
 ## 🔍 Overview
 
-SlaveBox is an ESP32-based sensor hub designed for environmental monitoring and data acquisition. It provides a clean, modular architecture for managing multiple I2C sensors simultaneously with automatic scanning, reading, and data aggregation.
+SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for environmental monitoring and data acquisition. It provides a clean, modular architecture for managing multiple I2C sensors simultaneously with automatic scanning, reading, and data aggregation. Data can be transmitted wirelessly via BLE and displayed on an integrated OLED screen.
 
 ### Why SlaveBox?
 
@@ -35,6 +39,8 @@ SlaveBox is an ESP32-based sensor hub designed for environmental monitoring and 
 - ✅ **Clean Code** - Helper functions keep main code simple
 - ✅ **Auto-Discovery** - Automatically scans and identifies I2C sensors
 - ✅ **Structured Data** - Returns organized sensor data in nested maps
+- ✅ **BLE Connectivity** - Wireless data transmission with secure pairing
+- ✅ **OLED Display** - Real-time status and pairing PIN display
 - ✅ **Debug Support** - Built-in debug output for troubleshooting
 
 ---
@@ -46,6 +52,10 @@ SlaveBox is an ESP32-based sensor hub designed for environmental monitoring and 
 - **Modular Helper System**: Each sensor has dedicated helper files
 - **Centralized Management**: SensorManager handles all sensor operations
 - **Structured Data Output**: Returns data as `std::map<String, std::map<String, float>>`
+- **BLE Data Transmission**: Stream sensor data wirelessly to connected devices
+- **Secure BLE Pairing**: PIN-based pairing with on-screen display
+- **OLED Display**: 128x32 SSD1306 screen for status and pairing info
+- **Visual Progress Indicator**: Circular countdown timer during pairing
 - **Debug Mode**: Toggle verbose output for development
 
 ---
@@ -60,6 +70,18 @@ SlaveBox is an ESP32-based sensor hub designed for environmental monitoring and 
 
 ---
 
+## 🔩 Hardware Components
+
+| Component | Description | I2C Address |
+|-----------|-------------|-------------|
+| **ESP32 WROOM** | Main microcontroller | - |
+| **SSD1306 OLED** | 128x32 pixel display | `0x3C` |
+| **BME280** | Environmental sensor | `0x77` |
+| **SGP30** | Air quality sensor | `0x58` |
+| **BH1750** | Light sensor | `0x23` |
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -68,14 +90,19 @@ SlaveBox/
 │   ├── Bme280Helper.h      # BME280 sensor interface
 │   ├── Sgp30Helper.h       # SGP30 sensor interface
 │   ├── Bh1750Helper.h      # BH1750 sensor interface
-│   └── SensorManager.h     # Central sensor management
+│   ├── SensorManager.h     # Central sensor management
+│   ├── BLEHelper.h         # Bluetooth Low Energy communication
+│   ├── ScreenHelper.h      # OLED display control
+│   └── runSetup.h          # Initialization routines
 ├── src/
 │   ├── main.cpp            # Main application entry
 │   ├── Bme280Helper.cpp    # BME280 implementation
 │   ├── Sgp30Helper.cpp     # SGP30 implementation
 │   ├── Bh1750Helper.cpp    # BH1750 implementation
 │   ├── SensorManager.cpp   # Sensor manager implementation
-│   └── runSetup.cpp        # Initialization routines
+│   ├── BLEHelper.cpp       # BLE server and data transmission
+│   ├── ScreenHelper.cpp    # OLED display functions
+│   └── runSetup.cpp        # Hardware initialization
 ├── platformio.ini          # PlatformIO configuration
 └── README.md               # This file
 ```
@@ -87,13 +114,25 @@ SlaveBox/
 ### Prerequisites
 
 - **Hardware**:
-  - ESP32 Development Board
+  - ESP32 Development Board (WROOM recommended)
+  - SSD1306 OLED Display (128x32, I2C)
   - Supported I2C sensors (BME280, SGP30, BH1750)
   - Jumper wires for connections
 
 - **Software**:
   - [PlatformIO IDE](https://platformio.org/) or [PlatformIO CLI](https://docs.platformio.org/en/latest/core/installation.html)
   - USB cable for programming
+
+### Dependencies (Auto-installed via PlatformIO)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| Adafruit BME280 | ^2.3.0 | Temperature/Humidity/Pressure sensor |
+| Adafruit SGP30 | ^2.0.3 | Air quality sensor |
+| BH1750 (claws) | ^1.3.0 | Light sensor |
+| ArduinoJson | ^7.2.1 | JSON serialization for BLE data |
+| Adafruit GFX | ^1.12.4 | Graphics library for OLED |
+| Adafruit SSD1306 | ^2.5.16 | OLED display driver |
 
 ### Wiring
 
@@ -106,7 +145,7 @@ All sensors use I2C protocol. Connect as follows:
 | 3.3V | VCC |
 | GND | GND |
 
-> **Note**: Multiple I2C devices can share the same SDA/SCL bus.
+> **Note**: Multiple I2C devices can share the same SDA/SCL bus. The OLED display (0x3C) and all sensors connect to the same I2C bus.
 
 ### Installation
 
@@ -137,12 +176,13 @@ All sensors use I2C protocol. Connect as follows:
 
 ### Basic Example
 
-The main loop automatically scans and reads all sensors:
+The main loop automatically scans and reads all sensors, then transmits data over BLE:
 
 ```cpp
 #include <Arduino.h>
 #include "runSetup.h"
 #include "SensorManager.h"
+#include "BLEHelper.h"
 
 void setup() {
   runSetup();
@@ -154,11 +194,9 @@ void loop() {
   // Get all sensor data as a structured dictionary
   std::map<String, std::map<String, float>> sensorData = scanAndReadAllSensors(true);
   
-  // Access specific sensor values
-  if (sensorData.count("BME280") > 0) {
-    float temp = sensorData["BME280"]["temperature"];
-    float humidity = sensorData["BME280"]["humidity"];
-    Serial.print("Temperature: "); Serial.println(temp);
+  // Send sensor data over BLE (if connected)
+  if (bleHelper.isConnected()) {
+    bleHelper.sendMap(sensorData);
   }
   
   delay(5000);
@@ -264,6 +302,72 @@ Returns: `{"light"}`
 
 ---
 
+## 📡 BLE Communication
+
+SlaveBox includes a BLE (Bluetooth Low Energy) server for wireless data transmission.
+
+### BLE Service & Characteristics
+
+| UUID | Name | Description |
+|------|------|-------------|
+| `cfa59c64-aeaf-42ac-bf8d-bc4a41ef5b0c` | Service | Main sensor service |
+| `49c92b70-42f5-49c3-bc38-5fe05b3df8e0` | Sensor Data | JSON-formatted sensor readings |
+| `3bee5811-4c6c-449a-b368-0b1391c6c1dc` | Sensor Type | Primary sensor type identifier |
+| `9d62dc0c-b4ef-40c4-9383-15bdc16870de` | Box ID | Device identifier |
+
+### BLE Helper Functions
+
+```cpp
+// Initialize BLE with device name and box ID
+bleHelper.begin("RoomSense-Sensor-01", "box_room_001");
+
+// Check if a client is connected
+if (bleHelper.isConnected()) {
+    // Send sensor data as JSON
+    bleHelper.sendMap(sensorData);
+}
+```
+
+### Secure Pairing
+
+When a device attempts to pair:
+1. A 6-digit PIN is generated and displayed on the OLED screen
+2. A 30-second countdown timer shows remaining time
+3. User enters the PIN on their phone/device
+4. Screen shows "SUCCESS!" or "FAILED!" based on result
+
+---
+
+## 🖥️ OLED Display
+
+The 128x32 SSD1306 OLED display provides visual feedback.
+
+### Screen Functions
+
+```cpp
+// Initialize the display
+bool initScreen();
+
+// Display header and value
+updateScreen("Temperature", "24.5 C", true);
+
+// Display with circular progress indicator (for pairing countdown)
+updateScreenWithProgress("ENTER PIN (25s)", "123-456", 83);
+
+// Clear the display
+clearScreen();
+```
+
+### Display Modes
+
+| Mode | Description |
+|------|-------------|
+| Header + Value | Shows title with divider line and large value text |
+| Value Only | Large centered text (when `showHeader = false`) |
+| Progress Mode | Header, value, and circular countdown indicator |
+
+---
+
 ## 🔧 Adding New Sensors
 
 Follow these steps to add a new I2C sensor:
@@ -340,7 +444,9 @@ Your sensor will now be automatically scanned and read.
 
 ## 🙏 Acknowledgments
 
-- Adafruit for sensor libraries
+- Adafruit for sensor and display libraries
+- bblanchon for ArduinoJson library
+- claws for BH1750 library
 - PlatformIO for the excellent development platform
 - ESP32 community for support and documentation
 
