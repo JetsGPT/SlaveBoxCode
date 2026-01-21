@@ -46,4 +46,11 @@ void updateScreenWithProgress(String headerText, String valueText, int percentag
  */
 void clearScreen();
 
+/**
+ * @brief Set display power on or off (true hardware power control)
+ * Uses SSD1306_DISPLAYON/OFF commands for real power savings
+ * @param on true = display on, false = display off
+ */
+void setDisplayPower(bool on);
+
 #endif // SCREENHELPER_H

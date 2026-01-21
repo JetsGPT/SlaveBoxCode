@@ -17,6 +17,9 @@ public:
     // Check whether a BLE client is connected
     bool isConnected();
 
+    // Check whether BLE pairing is currently in progress (PIN displayed on screen)
+    bool isPairing();
+
 private:
     // hide implementation details in the .cpp
     class Impl;

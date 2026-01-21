@@ -1,5 +1,6 @@
 #include "BLEHelper.h"
 #include "ScreenHelper.h"
+#include "ScreenPowerManager.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -12,16 +13,34 @@
 
 // --- Pairing Timer Variables ---
 #define PAIRING_TIMEOUT_SECONDS 30
+#define PAIRING_COOLDOWN_MS 5000  // Rate limit: 5 seconds between pairing attempts
 static volatile bool pairingInProgress = false;
 static volatile uint32_t currentPassKey = 0;
 static TaskHandle_t pairingTimerTaskHandle = NULL;
+static unsigned long lastPairingAttempt = 0;
 
 // Forward declaration
 void pairingTimerTask(void* parameter);
 
 void startPairingTimer(uint32_t passKey) {
+    // Rate limiting check to prevent pairing DoS attacks
+    unsigned long now = millis();
+    if (pairingInProgress) {
+        Serial.println("⚠️ Pairing already in progress, ignoring request");
+        return;
+    }
+    if ((now - lastPairingAttempt) < PAIRING_COOLDOWN_MS && lastPairingAttempt != 0) {
+        Serial.println("⚠️ Pairing rate limited, try again later");
+        return;
+    }
+    lastPairingAttempt = now;
+    
     currentPassKey = passKey;
     pairingInProgress = true;
+    
+    // Wake the screen and ensure display is on to show PIN
+    screenPowerManager.wake();
+    setDisplayPower(true);
     
     // Create timer task if not already running
     if (pairingTimerTaskHandle == NULL) {
@@ -48,20 +67,20 @@ void pairingTimerTask(void* parameter) {
     int totalFrames = PAIRING_TIMEOUT_SECONDS * 4;  // 4 frames per second
     int remainingFrames = totalFrames;
     char pinStr[8];
-    char displayStr[10];
-    char headerStr[20];
+    char displayStr[12];  // Increased buffer size for safety
+    char headerStr[24];   // Increased buffer size for safety
     
-    // Format PIN as XXX-XXX
-    sprintf(pinStr, "%06d", currentPassKey);
-    sprintf(displayStr, "%.3s-%.3s", pinStr, pinStr + 3);
+    // Format PIN as XXX-XXX using snprintf for buffer safety
+    snprintf(pinStr, sizeof(pinStr), "%06lu", (unsigned long)(currentPassKey % 1000000));
+    snprintf(displayStr, sizeof(displayStr), "%.3s-%.3s", pinStr, pinStr + 3);
     
     while (pairingInProgress && remainingFrames > 0) {
         // Calculate percentage remaining (100 = full, 0 = empty)
         int percentage = (remainingFrames * 100) / totalFrames;
         int remainingSeconds = (remainingFrames + 3) / 4;  // Round up to nearest second
         
-        // Format header with countdown
-        sprintf(headerStr, "ENTER PIN (%ds)", remainingSeconds);
+        // Format header with countdown using snprintf for buffer safety
+        snprintf(headerStr, sizeof(headerStr), "ENTER PIN (%ds)", remainingSeconds);
         
         // Update screen with PIN and circular progress
         updateScreenWithProgress(String(headerStr), String(displayStr), percentage);
@@ -261,6 +280,10 @@ void BLEHelper::begin(const String &deviceName, const String &boxId) {
 }
 bool BLEHelper::isConnected() {
     return pimpl->deviceConnected;
+}
+
+bool BLEHelper::isPairing() {
+    return pairingInProgress;
 }
 void BLEHelper::sendMap(const std::map<String, std::map<String, float>> &data) {
     if (!pimpl->deviceConnected || pimpl->pSensorCharacteristic == nullptr) {

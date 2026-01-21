@@ -118,3 +118,13 @@ void clearScreen() {
     display.clearDisplay();
     display.display();
 }
+
+void setDisplayPower(bool on) {
+    if (!screenInitialized) return;
+    
+    if (on) {
+        display.ssd1306_command(SSD1306_DISPLAYON);
+    } else {
+        display.ssd1306_command(SSD1306_DISPLAYOFF);
+    }
+}

@@ -23,9 +23,17 @@
 - [Project Structure](#-project-structure)
 - [Getting Started](#-getting-started)
 - [Usage](#-usage)
+- [Button Controls & Power Management](#-button-controls--power-management)
 - [BLE Communication](#-ble-communication)
 - [OLED Display](#-oled-display)
+- [Python BLE Bridge](#-python-ble-bridge)
 - [Adding New Sensors](#-adding-new-sensors)
+- [Troubleshooting](#-troubleshooting)
+- [Glossary](#-glossary)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Authors](#-authors)
+- [Acknowledgments](#-acknowledgments)
 
 ---
 
@@ -41,6 +49,7 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 - ✅ **Structured Data** - Returns organized sensor data in nested maps
 - ✅ **BLE Connectivity** - Wireless data transmission with secure pairing
 - ✅ **OLED Display** - Real-time status and pairing PIN display
+- ✅ **Power Management** - Auto-sleep display with button wake and always-on mode
 - ✅ **Debug Support** - Built-in debug output for troubleshooting
 
 ---
@@ -56,6 +65,8 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 - **Secure BLE Pairing**: PIN-based pairing with on-screen display
 - **OLED Display**: 128x32 SSD1306 screen for status and pairing info
 - **Visual Progress Indicator**: Circular countdown timer during pairing
+- **Button Controls**: Short press to wake display, long press for always-on mode
+- **Screen Power Management**: Auto-sleep after 10 seconds of inactivity
 - **Debug Mode**: Toggle verbose output for development
 
 ---
@@ -79,6 +90,7 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 | **BME280** | Environmental sensor | `0x77` |
 | **SGP30** | Air quality sensor | `0x58` |
 | **BH1750** | Light sensor | `0x23` |
+| **Push Button** | User input (GPIO 4) | - |
 
 ---
 
@@ -87,24 +99,31 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 ```
 SlaveBox/
 ├── include/
-│   ├── Bme280Helper.h      # BME280 sensor interface
-│   ├── Sgp30Helper.h       # SGP30 sensor interface
-│   ├── Bh1750Helper.h      # BH1750 sensor interface
-│   ├── SensorManager.h     # Central sensor management
-│   ├── BLEHelper.h         # Bluetooth Low Energy communication
-│   ├── ScreenHelper.h      # OLED display control
-│   └── runSetup.h          # Initialization routines
+│   ├── Bme280Helper.h         # BME280 sensor interface
+│   ├── Sgp30Helper.h          # SGP30 sensor interface
+│   ├── Bh1750Helper.h         # BH1750 sensor interface
+│   ├── SensorManager.h        # Central sensor management
+│   ├── BLEHelper.h            # Bluetooth Low Energy communication
+│   ├── ScreenHelper.h         # OLED display control
+│   ├── DisplayHelper.h        # Sensor data display formatting
+│   ├── ButtonHandler.h        # Debounced button input handling
+│   ├── ScreenPowerManager.h   # Display auto-sleep/wake management
+│   └── runSetup.h             # Initialization routines
 ├── src/
-│   ├── main.cpp            # Main application entry
-│   ├── Bme280Helper.cpp    # BME280 implementation
-│   ├── Sgp30Helper.cpp     # SGP30 implementation
-│   ├── Bh1750Helper.cpp    # BH1750 implementation
-│   ├── SensorManager.cpp   # Sensor manager implementation
-│   ├── BLEHelper.cpp       # BLE server and data transmission
-│   ├── ScreenHelper.cpp    # OLED display functions
-│   └── runSetup.cpp        # Hardware initialization
-├── platformio.ini          # PlatformIO configuration
-└── README.md               # This file
+│   ├── main.cpp               # Main application entry
+│   ├── Bme280Helper.cpp       # BME280 implementation
+│   ├── Sgp30Helper.cpp        # SGP30 implementation
+│   ├── Bh1750Helper.cpp       # BH1750 implementation
+│   ├── SensorManager.cpp      # Sensor manager implementation
+│   ├── BLEHelper.cpp          # BLE server and data transmission
+│   ├── ScreenHelper.cpp       # OLED display functions
+│   ├── DisplayHelper.cpp      # Sensor data display logic
+│   ├── ButtonHandler.cpp      # Button input processing
+│   ├── ScreenPowerManager.cpp # Screen power state management
+│   └── runSetup.cpp           # Hardware initialization
+├── platformio.ini             # PlatformIO configuration
+├── requirements.txt           # Python dependencies for BLE bridge
+└── README.md                  # This file
 ```
 
 ---
@@ -117,6 +136,7 @@ SlaveBox/
   - ESP32 Development Board (WROOM recommended)
   - SSD1306 OLED Display (128x32, I2C)
   - Supported I2C sensors (BME280, SGP30, BH1750)
+  - Push button (momentary, normally open)
   - Jumper wires for connections
 
 - **Software**:
@@ -138,25 +158,27 @@ SlaveBox/
 
 All sensors use I2C protocol. Connect as follows:
 
-| ESP32 Pin | Sensor Pin |
+| ESP32 Pin | Connection |
 |-----------|------------|
-| GPIO 21 (SDA) | SDA |
-| GPIO 22 (SCL) | SCL |
-| 3.3V | VCC |
-| GND | GND |
+| GPIO 21 (SDA) | SDA (all I2C devices) |
+| GPIO 22 (SCL) | SCL (all I2C devices) |
+| GPIO 4 | Button (other side to GND) |
+| 3.3V | VCC (all sensors & display) |
+| GND | GND (all devices) |
 
-> **Note**: Multiple I2C devices can share the same SDA/SCL bus. The OLED display (0x3C) and all sensors connect to the same I2C bus.
+> **Note**: Multiple I2C devices can share the same SDA/SCL bus. The OLED display (0x3C) and all sensors connect to the same I2C bus. The button uses INPUT_PULLUP mode, so connect between GPIO 4 and GND.
 
 ### Installation
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/SlaveBoxCode.git
+   git clone https://github.com/JetsGPT/SlaveBoxCode.git
    cd SlaveBoxCode
    ```
 
 2. **Open in PlatformIO**:
    ```bash
+   cd SlaveBox
    pio run
    ```
 
@@ -176,30 +198,58 @@ All sensors use I2C protocol. Connect as follows:
 
 ### Basic Example
 
-The main loop automatically scans and reads all sensors, then transmits data over BLE:
+The main loop automatically scans and reads all sensors, handles button input, manages display power, and transmits data over BLE:
 
 ```cpp
 #include <Arduino.h>
 #include "runSetup.h"
 #include "SensorManager.h"
 #include "BLEHelper.h"
+#include "DisplayHelper.h"
+#include "ButtonHandler.h"
+#include "ScreenPowerManager.h"
+
+// Button on GPIO 4 (connect button between GPIO4 and GND)
+ButtonHandler button(4);
 
 void setup() {
   runSetup();
   initializeSensors();
+  button.begin();
+  screenPowerManager.begin();  // Starts with screen OFF
   delay(1000);
 }
 
 void loop() {
-  // Get all sensor data as a structured dictionary
-  std::map<String, std::map<String, float>> sensorData = scanAndReadAllSensors(true);
+  // Update button state (must be called every loop)
+  button.update();
   
-  // Send sensor data over BLE (if connected)
+  // Update screen power manager (handles auto-timeout)
+  screenPowerManager.update();
+  
+  // Handle button presses
+  if (button.wasLongPressed()) {
+    screenPowerManager.toggleAlwaysOn();  // Long press: toggle always-on
+  } else if (button.wasPressed()) {
+    screenPowerManager.wake();  // Short press: wake screen
+  }
+  
+  // Get all sensor data
+  std::map<String, std::map<String, float>> sensorData = scanAndReadAllSensors(true);
+
+  // Display when screen is on and not showing pairing PIN
+  if (screenPowerManager.isScreenOn() && !bleHelper.isPairing()) {
+    if (sensorData.empty()) {
+      displayNoSensors();
+    } else {
+      displaySensorData(sensorData);
+    }
+  }
+
+  // Send data over BLE if connected
   if (bleHelper.isConnected()) {
     bleHelper.sendMap(sensorData);
   }
-  
-  delay(5000);
 }
 ```
 
@@ -302,6 +352,58 @@ Returns: `{"light"}`
 
 ---
 
+## 🔘 Button Controls & Power Management
+
+SlaveBox includes a button interface for controlling the OLED display power state.
+
+### Button Wiring
+
+Connect a momentary push button between **GPIO 4** and **GND**. The internal pull-up resistor is enabled automatically.
+
+### Button Functions
+
+| Action | Function |
+|--------|----------|
+| **Short Press** | Wake the display and reset the auto-sleep timer |
+| **Long Press** (2+ seconds) | Toggle "Always On" mode (disables auto-sleep) |
+
+### Screen Power Management
+
+The display uses intelligent power management to conserve energy:
+
+- **Default State**: Screen starts OFF
+- **Auto-Sleep**: Screen turns off after 10 seconds of inactivity
+- **Wake on Pairing**: Screen automatically wakes to show BLE pairing PIN
+- **Always-On Mode**: Disables auto-sleep (toggled via long press)
+
+### ButtonHandler API
+
+```cpp
+ButtonHandler button(4);  // GPIO pin 4, 50ms debounce, 2000ms long press
+
+button.begin();           // Initialize GPIO
+button.update();          // Call every loop iteration
+
+if (button.wasPressed()) { ... }      // Short press detected
+if (button.wasLongPressed()) { ... }  // Long press detected
+if (button.isHeld()) { ... }          // Button currently held
+```
+
+### ScreenPowerManager API
+
+```cpp
+screenPowerManager.begin();     // Initialize (screen starts OFF)
+screenPowerManager.update();    // Call every loop (checks timeout)
+screenPowerManager.wake();      // Turn on and reset timer
+screenPowerManager.sleep();     // Turn off immediately
+screenPowerManager.toggleAlwaysOn();  // Toggle always-on mode
+
+if (screenPowerManager.isScreenOn()) { ... }
+if (screenPowerManager.isAlwaysOn()) { ... }
+```
+
+---
+
 ## 📡 BLE Communication
 
 SlaveBox includes a BLE (Bluetooth Low Energy) server for wireless data transmission.
@@ -325,6 +427,11 @@ bleHelper.begin("RoomSense-Sensor-01", "box_room_001");
 if (bleHelper.isConnected()) {
     // Send sensor data as JSON
     bleHelper.sendMap(sensorData);
+}
+
+// Check if pairing is in progress
+if (bleHelper.isPairing()) {
+    // PIN is being displayed on screen
 }
 ```
 
@@ -356,6 +463,20 @@ updateScreenWithProgress("ENTER PIN (25s)", "123-456", 83);
 
 // Clear the display
 clearScreen();
+
+// Control display power (hardware level)
+setDisplayPower(true);   // Turn on
+setDisplayPower(false);  // Turn off
+```
+
+### DisplayHelper Functions
+
+```cpp
+// Cycle through all sensor metrics with formatted display
+displaySensorData(sensorData, 2000);  // 2 second per metric
+
+// Show "No Sensors" message
+displayNoSensors();
 ```
 
 ### Display Modes
@@ -365,6 +486,31 @@ clearScreen();
 | Header + Value | Shows title with divider line and large value text |
 | Value Only | Large centered text (when `showHeader = false`) |
 | Progress Mode | Header, value, and circular countdown indicator |
+
+---
+
+## 🐍 Python BLE Bridge
+
+A Python-based BLE to MQTT bridge is available for integrating with home automation systems.
+
+### Python Dependencies
+
+Install the required packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+**requirements.txt**:
+```
+bleak>=0.21.0
+aiomqtt>=1.2.0
+```
+
+| Package | Purpose |
+|---------|---------|
+| **bleak** | BLE client library for Python |
+| **aiomqtt** | Async MQTT client for publishing sensor data |
 
 ---
 
@@ -436,6 +582,127 @@ Your sensor will now be automatically scanned and read.
 
 ---
 
+## ❓ Troubleshooting
+
+### Common Issues
+
+| Problem | Solution |
+|---------|----------|
+| **No sensors detected** | Check I2C wiring (SDA to GPIO 21, SCL to GPIO 22). Verify 3.3V power. |
+| **OLED not working** | Confirm I2C address is 0x3C. Check for loose connections. |
+| **BLE not advertising** | Ensure no other device is connected. Restart the ESP32. |
+| **BLE pairing fails** | Enter PIN within 30 seconds. Ensure phone's Bluetooth is on. |
+| **Button not responding** | Verify button is between GPIO 4 and GND. Check for bad contacts. |
+| **Display stays off** | Press button to wake. Long press to disable auto-sleep. |
+| **Sensor readings are wrong** | Allow sensors to warm up (SGP30 needs 15 seconds). |
+
+### I2C Scanner
+
+If sensors aren't detected, run an I2C scanner to verify device addresses:
+
+```cpp
+#include <Wire.h>
+
+void setup() {
+  Wire.begin(21, 22);
+  Serial.begin(115200);
+  
+  for (byte addr = 1; addr < 127; addr++) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) {
+      Serial.printf("Found device at 0x%02X\n", addr);
+    }
+  }
+}
+
+void loop() {}
+```
+
+### Debug Mode
+
+Enable debug output to see detailed sensor readings:
+
+```cpp
+auto data = scanAndReadAllSensors(true);  // Enables verbose output
+```
+
+---
+
+## 📖 Glossary
+
+| Term | Definition |
+|------|------------|
+| **I2C** | Inter-Integrated Circuit - A two-wire serial communication protocol used to connect sensors |
+| **BLE** | Bluetooth Low Energy - A wireless protocol optimized for low power consumption |
+| **SDA** | Serial Data Line - The I2C data signal wire |
+| **SCL** | Serial Clock Line - The I2C clock signal wire |
+| **eCO2** | Equivalent Carbon Dioxide - An estimation of CO2 levels based on VOC measurements (ppm) |
+| **TVOC** | Total Volatile Organic Compounds - Measure of air quality pollutants (ppb) |
+| **lux** | Unit of illuminance measuring light intensity |
+| **hPa** | Hectopascal - Unit of atmospheric pressure (1 hPa = 1 mbar) |
+| **UUID** | Universally Unique Identifier - Used to identify BLE services and characteristics |
+| **OLED** | Organic Light-Emitting Diode - Display technology used for the screen |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/AmazingFeature`)
+3. **Commit** your changes (`git commit -m 'Add some AmazingFeature'`)
+4. **Push** to the branch (`git push origin feature/AmazingFeature`)
+5. **Open** a Pull Request
+
+### Guidelines
+
+- Follow the existing code style
+- Add comments for complex logic
+- Update documentation for new features
+- Test on actual hardware when possible
+- Create sensor helpers following the existing pattern
+
+### Ideas for Contributions
+
+- Support for additional sensors
+- Web-based configuration interface
+- MQTT direct publishing from ESP32
+- Data logging to SD card
+- Multi-room mesh networking
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+```
+MIT License
+
+Copyright (c) 2024 Julian
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
 ## 👥 Authors
 
 - **Julian** - *Initial work*
@@ -456,6 +723,6 @@ Your sensor will now be automatically scanned and read.
 
 **Made with ❤️ for the IoT community**
 
-[⬆ Back to Top](#-slavebox---esp32-sensor-hub)
+[⬆ Back to Top](#-slavebox---esp32-sensor-hub-roomsense)
 
 </div>
