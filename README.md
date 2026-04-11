@@ -16,24 +16,24 @@
 
 ## 📋 Table of Contents
 
-- [Overview](#-overview)
-- [Features](#-features)
-- [Supported Sensors](#-supported-sensors)
-- [Hardware Components](#-hardware-components)
-- [Project Structure](#-project-structure)
-- [Getting Started](#-getting-started)
-- [Usage](#-usage)
-- [Button Controls & Power Management](#-button-controls--power-management)
-- [BLE Communication](#-ble-communication)
-- [OLED Display](#-oled-display)
-- [Python BLE Bridge](#-python-ble-bridge)
-- [Adding New Sensors](#-adding-new-sensors)
-- [Troubleshooting](#-troubleshooting)
-- [Glossary](#-glossary)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Authors](#-authors)
-- [Acknowledgments](#-acknowledgments)
+- [Overview](#overview)
+- [Features](#features)
+- [Supported Sensors](#supported-sensors)
+- [Hardware Components](#hardware-components)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Button Controls & Power Management](#button-controls--power-management)
+- [BLE Communication](#ble-communication)
+- [OLED Display](#oled-display)
+- [Python BLE Bridge](#python-ble-bridge)
+- [Adding New Sensors](#adding-new-sensors)
+- [Troubleshooting](#troubleshooting)
+- [Glossary](#glossary)
+- [Contributing](#contributing)
+- [License](#license)
+- [Authors](#authors)
+- [Acknowledgments](#acknowledgments)
 
 ---
 
@@ -85,43 +85,32 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 
 | Component | Description | I2C Address |
 |-----------|-------------|-------------|
-| **ESP32 WROOM** | Main microcontroller | - |
+| **Seeed XIAO ESP32S3** | Primary small-form-factor controller | - |
+| **ESP32 WROOM** | Alternative microcontroller | - |
 | **SSD1306 OLED** | 128x32 pixel display | `0x3C` |
 | **BME280** | Environmental sensor | `0x77` |
 | **SGP30** | Air quality sensor | `0x58` |
 | **BH1750** | Light sensor | `0x23` |
-| **Push Button** | User input (GPIO 4) | - |
+| **Push Button** | User input (Optional, GPIO 4 on WROOM) | - |
 
 ---
 
 ## 📁 Project Structure
 
+The repository contains two main projects: `SlaveBox_XiaoS3` (primary) and `SlaveBox` (alternative WROOM version).
+
 ```
-SlaveBox/
-├── include/
-│   ├── Bme280Helper.h         # BME280 sensor interface
-│   ├── Sgp30Helper.h          # SGP30 sensor interface
-│   ├── Bh1750Helper.h         # BH1750 sensor interface
-│   ├── SensorManager.h        # Central sensor management
-│   ├── BLEHelper.h            # Bluetooth Low Energy communication
-│   ├── ScreenHelper.h         # OLED display control
-│   ├── DisplayHelper.h        # Sensor data display formatting
-│   ├── ButtonHandler.h        # Debounced button input handling
-│   ├── ScreenPowerManager.h   # Display auto-sleep/wake management
-│   └── runSetup.h             # Initialization routines
-├── src/
-│   ├── main.cpp               # Main application entry
-│   ├── Bme280Helper.cpp       # BME280 implementation
-│   ├── Sgp30Helper.cpp        # SGP30 implementation
-│   ├── Bh1750Helper.cpp       # BH1750 implementation
-│   ├── SensorManager.cpp      # Sensor manager implementation
-│   ├── BLEHelper.cpp          # BLE server and data transmission
-│   ├── ScreenHelper.cpp       # OLED display functions
-│   ├── DisplayHelper.cpp      # Sensor data display logic
-│   ├── ButtonHandler.cpp      # Button input processing
-│   ├── ScreenPowerManager.cpp # Screen power state management
-│   └── runSetup.cpp           # Hardware initialization
-├── platformio.ini             # PlatformIO configuration
+SlaveBoxCode/
+├── SlaveBox_XiaoS3/           # Primary project for Seeed Studio XIAO ESP32S3
+│   ├── include/               # Header files
+│   ├── src/                   # Source files (main app, sensor helpers, BLE config)
+│   ├── platformio.ini         # PlatformIO configuration
+│   └── ...
+├── SlaveBox/                  # Original ESP32 WROOM version (with button/sleep features)
+│   ├── include/               
+│   ├── src/                   
+│   ├── platformio.ini         
+│   └── ...
 ├── requirements.txt           # Python dependencies for BLE bridge
 └── README.md                  # This file
 ```
@@ -156,17 +145,30 @@ SlaveBox/
 
 ### Wiring
 
-All sensors use I2C protocol. Connect as follows:
+All sensors use the I2C protocol. Connect as follows:
 
-| ESP32 Pin | Connection |
-|-----------|------------|
-| GPIO 21 (SDA) | SDA (all I2C devices) |
-| GPIO 22 (SCL) | SCL (all I2C devices) |
-| GPIO 4 | Button (other side to GND) |
-| 3.3V | VCC (all sensors & display) |
-| GND | GND (all devices) |
+#### Seeed Studio XIAO ESP32S3 Pinout (Primary)
 
-> **Note**: Multiple I2C devices can share the same SDA/SCL bus. The OLED display (0x3C) and all sensors connect to the same I2C bus. The button uses INPUT_PULLUP mode, so connect between GPIO 4 and GND.
+![Seeed XIAO ESP32S3 Pinout](https://files.seeedstudio.com/wiki/SeeedStudio-XIAO-ESP32S3/img/xiao-esp32s3-pinout.jpg)
+
+| XIAO S3 Pin | Function | Connection |
+|-------------|----------|------------|
+| **D4 (GPIO5)** | SDA | SDA (all I2C devices) |
+| **D5 (GPIO6)** | SCL | SCL (all I2C devices) |
+| **3V3** | VCC | VCC (all sensors & display) |
+| **GND** | GND | GND (all devices) |
+
+#### ESP32 WROOM Pinout (Alternative)
+
+| ESP32 Pin | Function | Connection |
+|-----------|----------|------------|
+| **GPIO 21** | SDA | SDA (all I2C devices) |
+| **GPIO 22** | SCL | SCL (all I2C devices) |
+| **GPIO 4** | GPIO | Button (other side to GND) |
+| **3.3V** | VCC | VCC (all sensors & display) |
+| **GND** | GND | GND (all devices) |
+
+> **Note**: Multiple I2C devices can share the same SDA/SCL bus. The OLED display (0x3C) and all sensors connect to the same I2C bus. On the WROOM alternative, the button uses INPUT_PULLUP mode.
 
 ### Installation
 
@@ -178,7 +180,7 @@ All sensors use I2C protocol. Connect as follows:
 
 2. **Open in PlatformIO**:
    ```bash
-   cd SlaveBox
+   cd SlaveBox_XiaoS3
    pio run
    ```
 
@@ -198,7 +200,7 @@ All sensors use I2C protocol. Connect as follows:
 
 ### Basic Example
 
-The main loop automatically scans and reads all sensors, handles button input, manages display power, and transmits data over BLE:
+The main loop automatically scans and reads all sensors, and transmits data over BLE:
 
 ```cpp
 #include <Arduino.h>
@@ -206,39 +208,20 @@ The main loop automatically scans and reads all sensors, handles button input, m
 #include "SensorManager.h"
 #include "BLEHelper.h"
 #include "DisplayHelper.h"
-#include "ButtonHandler.h"
-#include "ScreenPowerManager.h"
-
-// Button on GPIO 4 (connect button between GPIO4 and GND)
-ButtonHandler button(4);
 
 void setup() {
   runSetup();
   initializeSensors();
-  button.begin();
-  screenPowerManager.begin();  // Starts with screen OFF
+  
   delay(1000);
 }
 
 void loop() {
-  // Update button state (must be called every loop)
-  button.update();
-  
-  // Update screen power manager (handles auto-timeout)
-  screenPowerManager.update();
-  
-  // Handle button presses
-  if (button.wasLongPressed()) {
-    screenPowerManager.toggleAlwaysOn();  // Long press: toggle always-on
-  } else if (button.wasPressed()) {
-    screenPowerManager.wake();  // Short press: wake screen
-  }
-  
-  // Get all sensor data
+  // Get sensor data
   std::map<String, std::map<String, float>> sensorData = scanAndReadAllSensors(true);
 
-  // Display when screen is on and not showing pairing PIN
-  if (screenPowerManager.isScreenOn() && !bleHelper.isPairing()) {
+  // Only update OLED when not showing pairing PIN
+  if (!bleHelper.isPairing()) {
     if (sensorData.empty()) {
       displayNoSensors();
     } else {
@@ -353,6 +336,8 @@ Returns: `{"light"}`
 ---
 
 ## 🔘 Button Controls & Power Management
+
+*(Note: This feature is specific to the original ESP32 WROOM version in the `SlaveBox/` folder and is not currently implemented in the `SlaveBox_XiaoS3/` version).*
 
 SlaveBox includes a button interface for controlling the OLED display power state.
 
@@ -723,6 +708,6 @@ SOFTWARE.
 
 **Made with ❤️ for the IoT community**
 
-[⬆ Back to Top](#-slavebox---esp32-sensor-hub-roomsense)
+[⬆ Back to Top](#slavebox---esp32-sensor-hub-roomsense)
 
 </div>
