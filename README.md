@@ -149,7 +149,7 @@ All sensors use the I2C protocol. Connect as follows:
 
 #### Seeed Studio XIAO ESP32S3 Pinout (Primary)
 
-![Seeed XIAO ESP32S3 Pinout](https://files.seeedstudio.com/wiki/SeeedStudio-XIAO-ESP32S3/img/xiao-esp32s3-pinout.jpg)
+![Seeed XIAO ESP32S3 Pinout](https://files.seeedstudio.com/wiki/XIAO_ESP32S3_for_Meshtastic_LoRa/13.png)
 
 | XIAO S3 Pin | Function | Connection |
 |-------------|----------|------------|
