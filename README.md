@@ -31,7 +31,6 @@
 - [Button Controls & Power Management](#button-controls--power-management)
 - [BLE Communication](#ble-communication)
 - [OLED Display](#oled-display)
-- [Python BLE Bridge](#python-ble-bridge)
 - [Adding New Sensors](#adding-new-sensors)
 - [Troubleshooting](#troubleshooting)
 - [Glossary](#glossary)
