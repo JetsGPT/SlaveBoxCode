@@ -28,8 +28,10 @@ void setup() {
 
 void loop() {
     // Get (mock) sensor data — same map format as real firmware
+    // Suppress verbose scan log while BLE pairing PIN is on-screen
+    bool doDebug = !bleHelper.isPairing();
     std::map<String, std::map<String, float>> sensorData =
-        scanAndReadAllSensors(true);
+        scanAndReadAllSensors(doDebug);
 
     // Update OLED when not showing pairing PIN (always true in mock)
     if (!bleHelper.isPairing()) {

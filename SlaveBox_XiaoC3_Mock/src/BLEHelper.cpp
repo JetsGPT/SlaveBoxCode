@@ -220,16 +220,21 @@ bool BLEHelper::isPairing()   { return pairingInProgress; }
 void BLEHelper::sendMap(const std::map<String, std::map<String, float>>& data) {
     if (!pimpl->deviceConnected || pimpl->pSensorChar == nullptr) return;
 
-    Serial.println("--- [C3 MOCK BLE] Sending sensor map ---");
+    // Suppress all Serial output while pairing PIN is displayed
+    bool verbose = !pairingInProgress;
+
+    if (verbose) Serial.println("--- [C3 MOCK BLE] Sending sensor map ---");
     for (const auto& sensorPair : data) {
         const String& sensorName = sensorPair.first;
         for (const auto& metricPair : sensorPair.second) {
             const String& metricName = metricPair.first;
             float         value      = metricPair.second;
 
-            Serial.print(sensorName); Serial.print("/");
-            Serial.print(metricName); Serial.print(": ");
-            Serial.println(value, 4);
+            if (verbose) {
+                Serial.print(sensorName); Serial.print("/");
+                Serial.print(metricName); Serial.print(": ");
+                Serial.println(value, 4);
+            }
 
             pimpl->pSensorTypeChar->setValue(metricName.c_str());
             pimpl->pSensorTypeChar->notify();
@@ -247,7 +252,7 @@ void BLEHelper::sendMap(const std::map<String, std::map<String, float>>& data) {
 
             pimpl->pSensorChar->setValue(json.c_str());
             pimpl->pSensorChar->notify();
-            Serial.print("  -> JSON: "); Serial.println(json);
+            if (verbose) { Serial.print("  -> JSON: "); Serial.println(json); }
             delay(60);
         }
     }
