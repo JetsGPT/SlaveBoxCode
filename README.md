@@ -20,8 +20,13 @@
 - [Features](#features)
 - [Supported Sensors](#supported-sensors)
 - [Hardware Components](#hardware-components)
+- [Projects](#projects)
+  - [SlaveBox\_XiaoS3 — Primary (XIAO ESP32S3)](#slavebox_xiaos3--primary-xiao-esp32s3)
+  - [SlaveBox — WROOM Alternative](#slavebox--wroom-alternative)
+  - [SlaveBox\_XiaoC3\_Mock — ESP32-C3 Mock Firmware](#slavebox_xiaoc3_mock--esp32-c3-mock-firmware)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
+- [Debug Mode vs Production Mode](#debug-mode-vs-production-mode)
 - [Usage](#usage)
 - [Button Controls & Power Management](#button-controls--power-management)
 - [BLE Communication](#ble-communication)
@@ -41,6 +46,14 @@
 
 SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for environmental monitoring and data acquisition. It provides a clean, modular architecture for managing multiple I2C sensors simultaneously with automatic scanning, reading, and data aggregation. Data can be transmitted wirelessly via BLE and displayed on an integrated OLED screen.
 
+The repository contains **three projects**:
+
+| Project | Target | Purpose |
+|---------|--------|---------|
+| `SlaveBox_XiaoS3` | Seeed XIAO ESP32S3 | Primary production firmware |
+| `SlaveBox` | ESP32 WROOM | Alternative with button & screen-sleep support |
+| `SlaveBox_XiaoC3_Mock` | Seeed XIAO ESP32-C3 | Mock firmware — no physical sensors needed |
+
 ### Why SlaveBox?
 
 - ✅ **Modular Design** - Easy to add/remove sensors
@@ -49,7 +62,7 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 - ✅ **Structured Data** - Returns organized sensor data in nested maps
 - ✅ **BLE Connectivity** - Wireless data transmission with secure pairing
 - ✅ **OLED Display** - Real-time status and pairing PIN display
-- ✅ **Power Management** - Auto-sleep display with button wake and always-on mode
+- ✅ **Debug / Production Modes** - Switch between fast-loop dev mode and power-saving production builds
 - ✅ **Debug Support** - Built-in debug output for troubleshooting
 
 ---
@@ -65,9 +78,10 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 - **Secure BLE Pairing**: PIN-based pairing with on-screen display
 - **OLED Display**: 128x32 SSD1306 screen for status and pairing info
 - **Visual Progress Indicator**: Circular countdown timer during pairing
-- **Button Controls**: Short press to wake display, long press for always-on mode
-- **Screen Power Management**: Auto-sleep after 10 seconds of inactivity
-- **Debug Mode**: Toggle verbose output for development
+- **Button Controls**: Short press to wake display, long press for always-on mode *(WROOM only)*
+- **Screen Power Management**: Auto-sleep after 10 seconds of inactivity *(WROOM only)*
+- **Debug / Production Build Modes**: Compile-time `DEBUG_MODE` flag controls verbosity and power usage
+- **Mock Firmware**: Full ESP32-C3 mock for development without hardware sensors
 
 ---
 
@@ -86,7 +100,8 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 | Component | Description | I2C Address |
 |-----------|-------------|-------------|
 | **Seeed XIAO ESP32S3** | Primary small-form-factor controller | - |
-| **ESP32 WROOM** | Alternative microcontroller | - |
+| **Seeed XIAO ESP32-C3** | Mock firmware target | - |
+| **ESP32 WROOM** | Alternative microcontroller (button + sleep support) | - |
 | **SSD1306 OLED** | 128x32 pixel display | `0x3C` |
 | **BME280** | Environmental sensor | `0x77` |
 | **SGP30** | Air quality sensor | `0x58` |
@@ -95,24 +110,72 @@ SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for en
 
 ---
 
-## 📁 Project Structure
+## 📁 Projects
 
-The repository contains two main projects: `SlaveBox_XiaoS3` (primary) and `SlaveBox` (alternative WROOM version).
+### SlaveBox\_XiaoS3 — Primary (XIAO ESP32S3)
+
+The main production firmware for the **Seeed Studio XIAO ESP32S3**. Identical feature set to the WROOM version minus the physical button and screen power manager (not yet wired on S3).
+
+- I2C pins: `D4 (GPIO5)` = SDA, `D5 (GPIO6)` = SCL
+- Supports: `debug` and `production` PlatformIO environments
+
+---
+
+### SlaveBox — WROOM Alternative
+
+The original firmware targeting the **ESP32 WROOM** dev board. Adds a physical button on GPIO 4 for:
+- **Short press**: Wake OLED and reset auto-sleep timer
+- **Long press** (2 s+): Toggle always-on mode
+
+- I2C pins: `GPIO 21` = SDA, `GPIO 22` = SCL
+- Button: GPIO 4 → GND (INPUT_PULLUP)
+- Supports: `debug` and `production` PlatformIO environments
+
+---
+
+### SlaveBox\_XiaoC3\_Mock — ESP32-C3 Mock Firmware
+
+A **complete mock firmware** for the **Seeed Studio XIAO ESP32-C3** that emulates the full behaviour of the real firmware without needing physical I2C sensors attached.
+
+**How it works:**
+- `MockSensorManager` generates realistic, organically-drifting sensor values using sinusoidal math + noise — no I2C hardware required
+- `BLEHelper` is a stub: `sendMap()` logs identical JSON payloads to Serial instead of BLE-notifying (easy to verify with Python bridge)
+- `ScreenHelper` / `DisplayHelper` are the **real** SSD1306 implementations — plug in an OLED and it works
+- `main.cpp` is **byte-for-byte identical** to the real S3 firmware — swap in real helpers to convert to production
+
+**Mock sensor behaviour:**
+| Sensor | Base Value | Variation |
+|--------|-----------|-----------|
+| BME280 temperature | 22 °C | ±1.5 °C slow drift + ±0.2 °C noise |
+| BME280 humidity | 55 % | ±5 % slow drift |
+| BME280 pressure | 1013.25 hPa | ±2 hPa slow drift |
+| SGP30 eCO2 | 400 ppm (warm-up 15 s) | 400–900 ppm after warm-up |
+| SGP30 TVOC | 0 ppb (warm-up) | 10–70 ppb after warm-up |
+| BH1750 light | 350 lux | ±120 lux cloud drift + fluorescent ripple |
+
+---
+
+## 📁 Project Structure
 
 ```
 SlaveBoxCode/
-├── SlaveBox_XiaoS3/           # Primary project for Seeed Studio XIAO ESP32S3
+├── SlaveBox_XiaoS3/           # Primary — Seeed XIAO ESP32S3
 │   ├── include/               # Header files
-│   ├── src/                   # Source files (main app, sensor helpers, BLE config)
-│   ├── platformio.ini         # PlatformIO configuration
-│   └── ...
-├── SlaveBox/                  # Original ESP32 WROOM version (with button/sleep features)
-│   ├── include/               
-│   ├── src/                   
-│   ├── platformio.ini         
-│   └── ...
+│   ├── src/                   # main.cpp, sensor helpers, BLE, display
+│   └── platformio.ini         # debug + production environments
+│
+├── SlaveBox/                  # Alternative — ESP32 WROOM
+│   ├── include/               # Header files (incl. ButtonHandler, ScreenPowerManager)
+│   ├── src/                   # main.cpp, sensor helpers, BLE, display, button
+│   └── platformio.ini         # debug + production environments
+│
+├── SlaveBox_XiaoC3_Mock/      # Mock firmware — Seeed XIAO ESP32-C3
+│   ├── include/               # Header files (mock + real APIs)
+│   ├── src/                   # MockSensorManager, real ScreenHelper, BLE stub
+│   └── platformio.ini         # Single environment (seeed_xiao_esp32c3)
+│
 ├── requirements.txt           # Python dependencies for BLE bridge
-└── README.md                  # This file
+└── README.md
 ```
 
 ---
@@ -121,18 +184,18 @@ SlaveBoxCode/
 
 ### Prerequisites
 
-- **Hardware**:
-  - ESP32 Development Board (WROOM recommended)
-  - SSD1306 OLED Display (128x32, I2C)
-  - Supported I2C sensors (BME280, SGP30, BH1750)
-  - Push button (momentary, normally open)
-  - Jumper wires for connections
+**Hardware:**
+- ESP32 Development Board (XIAO ESP32S3 recommended, or WROOM)
+- SSD1306 OLED Display (128x32, I2C)
+- Supported I2C sensors (BME280, SGP30, BH1750)
+- Push button (optional, WROOM only)
+- jumper wires
 
-- **Software**:
-  - [PlatformIO IDE](https://platformio.org/) or [PlatformIO CLI](https://docs.platformio.org/en/latest/core/installation.html)
-  - USB cable for programming
+**Software:**
+- [PlatformIO IDE](https://platformio.org/) or [PlatformIO CLI](https://docs.platformio.org/en/latest/core/installation.html)
+- USB cable for programming
 
-### Dependencies (Auto-installed via PlatformIO)
+### Dependencies (auto-installed via PlatformIO)
 
 | Library | Version | Purpose |
 |---------|---------|---------|
@@ -145,11 +208,7 @@ SlaveBoxCode/
 
 ### Wiring
 
-All sensors use the I2C protocol. Connect as follows:
-
 #### Seeed Studio XIAO ESP32S3 Pinout (Primary)
-
-![Seeed XIAO ESP32S3 Pinout](https://files.seeedstudio.com/wiki/XIAO_ESP32S3_for_Meshtastic_LoRa/13.png)
 
 | XIAO S3 Pin | Function | Connection |
 |-------------|----------|------------|
@@ -168,31 +227,80 @@ All sensors use the I2C protocol. Connect as follows:
 | **3.3V** | VCC | VCC (all sensors & display) |
 | **GND** | GND | GND (all devices) |
 
-> **Note**: Multiple I2C devices can share the same SDA/SCL bus. The OLED display (0x3C) and all sensors connect to the same I2C bus. On the WROOM alternative, the button uses INPUT_PULLUP mode.
+> **Note**: Multiple I2C devices share the same SDA/SCL bus. All sensors and the OLED connect in parallel.
 
 ### Installation
 
-1. **Clone the repository**:
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/JetsGPT/SlaveBoxCode.git
    cd SlaveBoxCode
    ```
 
-2. **Open in PlatformIO**:
+2. **Open the desired project folder** (`SlaveBox_XiaoS3`, `SlaveBox`, or `SlaveBox_XiaoC3_Mock`) in PlatformIO.
+
+3. **Build and upload:**
    ```bash
-   cd SlaveBox_XiaoS3
-   pio run
+   # Debug mode (default — fast loop, verbose output)
+   pio run -e debug -t upload
+
+   # Production mode (power-saving — 5-minute sleep interval)
+   pio run -e production -t upload
    ```
 
-3. **Upload to ESP32**:
-   ```bash
-   pio run --target upload
-   ```
-
-4. **Monitor Serial Output**:
+4. **Monitor serial output:**
    ```bash
    pio device monitor
    ```
+
+---
+
+## 🐛 Debug Mode vs Production Mode
+
+Both real projects (`SlaveBox` and `SlaveBox_XiaoS3`) support two compile-time build modes controlled by the `DEBUG_MODE` preprocessor flag.
+
+### Selecting a mode
+
+```bash
+# Debug mode (development)
+pio run -e debug -t upload
+
+# Production mode (deployment / battery-powered use)
+pio run -e production -t upload
+```
+
+### Comparison
+
+| Feature | Debug Mode (`DEBUG_MODE=1`) | Production Mode (`DEBUG_MODE=0`) |
+|---------|-----------------------------|---------------------------------|
+| **Sensor read interval** | Every loop iteration (~2–3 s) | Every **5 minutes** |
+| **Serial output** | Full verbose scan log | Silent (no output) |
+| **OLED display** | Active, cycles through metrics | Off (WROOM: button-wake only) |
+| **BLE transmission** | Every read | Every read (if connected) |
+| **Sleep** | None | Light sleep between reads |
+| **Estimated power** | ~80 mA active | ~0.8 mA (light sleep avg.) |
+
+### How it works
+
+In **production mode**, after each sensor read and BLE transmission the device calls:
+
+```cpp
+esp_sleep_enable_timer_wakeup(5ULL * 60ULL * 1000000ULL); // 5 minutes
+esp_light_sleep_start();
+```
+
+**Why light sleep instead of deep sleep?**
+Light sleep preserves the BLE connection context and bonding keys in RAM. Deep sleep would reset the BLE stack and force re-pairing on every wake. Light sleep draws ~0.8 mA vs ~80 mA active — a 99% reduction in average current over a 5-minute cycle.
+
+### Adding power-save to your build flags
+
+The `DEBUG_MODE` flag is set exclusively in `platformio.ini` — no source file changes needed:
+
+```ini
+[env:production]
+build_flags =
+    -DDEBUG_MODE=0
+```
 
 ---
 
@@ -200,7 +308,7 @@ All sensors use the I2C protocol. Connect as follows:
 
 ### Basic Example
 
-The main loop automatically scans and reads all sensors, and transmits data over BLE:
+The main loop automatically scans and reads all sensors and transmits data over BLE:
 
 ```cpp
 #include <Arduino.h>
@@ -212,15 +320,12 @@ The main loop automatically scans and reads all sensors, and transmits data over
 void setup() {
   runSetup();
   initializeSensors();
-  
   delay(1000);
 }
 
 void loop() {
-  // Get sensor data
   std::map<String, std::map<String, float>> sensorData = scanAndReadAllSensors(true);
 
-  // Only update OLED when not showing pairing PIN
   if (!bleHelper.isPairing()) {
     if (sensorData.empty()) {
       displayNoSensors();
@@ -229,7 +334,6 @@ void loop() {
     }
   }
 
-  // Send data over BLE if connected
   if (bleHelper.isConnected()) {
     bleHelper.sendMap(sensorData);
   }
@@ -280,31 +384,18 @@ The `scanAndReadAllSensors()` function returns data in this structure:
 === Scan complete ===
 ```
 
----
-
 ### SensorManager Functions
 
 #### `void initializeSensors()`
 Initializes the I2C bus and prepares sensors for reading.
 
-```cpp
-void setup() {
-  initializeSensors();
-}
-```
-
 #### `std::map<String, std::map<String, float>> scanAndReadAllSensors(bool debug = true)`
 Scans all known sensors and returns their readings.
 
-**Parameters**:
-- `debug` - Enable/disable serial output (default: `true`)
+**Parameters:**
+- `debug` — Enable/disable serial output (default: `true`)
 
-**Returns**: Nested map with structure `{SensorName: {ValueType: Value}}`
-
-```cpp
-auto data = scanAndReadAllSensors(true);  // With debug output
-auto data = scanAndReadAllSensors(false); // Silent mode
-```
+**Returns:** Nested map `{SensorName: {ValueType: Value}}`
 
 #### `SensorInfo* getSensorByAddress(uint8_t addr)`
 Retrieves sensor information by I2C address.
@@ -318,28 +409,26 @@ SensorInfo* sensor = getSensorByAddress(0x77); // Get BME280 info
 #### BME280
 ```cpp
 std::map<String, float> getValues_BME280(uint8_t addr, bool debug);
+// Returns: {"temperature", "humidity", "pressure"}
 ```
-Returns: `{"temperature", "humidity", "pressure"}`
 
 #### SGP30
 ```cpp
 std::map<String, float> getValues_SGP30(bool debug);
+// Returns: {"eCO2", "TVOC"}
 ```
-Returns: `{"eCO2", "TVOC"}`
 
 #### BH1750
 ```cpp
 std::map<String, float> getValues_BH1750(uint8_t addr, bool debug);
+// Returns: {"light"}
 ```
-Returns: `{"light"}`
 
 ---
 
 ## 🔘 Button Controls & Power Management
 
-*(Note: This feature is specific to the original ESP32 WROOM version in the `SlaveBox/` folder and is not currently implemented in the `SlaveBox_XiaoS3/` version).*
-
-SlaveBox includes a button interface for controlling the OLED display power state.
+> *(WROOM variant only — `SlaveBox/`)*
 
 ### Button Wiring
 
@@ -354,12 +443,12 @@ Connect a momentary push button between **GPIO 4** and **GND**. The internal pul
 
 ### Screen Power Management
 
-The display uses intelligent power management to conserve energy:
-
-- **Default State**: Screen starts OFF
-- **Auto-Sleep**: Screen turns off after 10 seconds of inactivity
-- **Wake on Pairing**: Screen automatically wakes to show BLE pairing PIN
-- **Always-On Mode**: Disables auto-sleep (toggled via long press)
+| State | Behaviour |
+|-------|-----------|
+| **Default** | Screen starts OFF |
+| **Auto-Sleep** | Screen off after 10 s of inactivity |
+| **Wake on Pairing** | Screen auto-wakes to show BLE pairing PIN |
+| **Always-On Mode** | Disables auto-sleep (toggled via long press) |
 
 ### ButtonHandler API
 
@@ -377,11 +466,11 @@ if (button.isHeld()) { ... }          // Button currently held
 ### ScreenPowerManager API
 
 ```cpp
-screenPowerManager.begin();     // Initialize (screen starts OFF)
-screenPowerManager.update();    // Call every loop (checks timeout)
-screenPowerManager.wake();      // Turn on and reset timer
-screenPowerManager.sleep();     // Turn off immediately
-screenPowerManager.toggleAlwaysOn();  // Toggle always-on mode
+screenPowerManager.begin();          // Initialize (screen starts OFF)
+screenPowerManager.update();         // Call every loop (checks timeout)
+screenPowerManager.wake();           // Turn on and reset timer
+screenPowerManager.sleep();          // Turn off immediately
+screenPowerManager.toggleAlwaysOn(); // Toggle always-on mode
 
 if (screenPowerManager.isScreenOn()) { ... }
 if (screenPowerManager.isAlwaysOn()) { ... }
@@ -391,7 +480,7 @@ if (screenPowerManager.isAlwaysOn()) { ... }
 
 ## 📡 BLE Communication
 
-SlaveBox includes a BLE (Bluetooth Low Energy) server for wireless data transmission.
+SlaveBox includes a BLE server for wireless data transmission.
 
 ### BLE Service & Characteristics
 
@@ -410,7 +499,6 @@ bleHelper.begin("RoomSense-Sensor-01", "box_room_001");
 
 // Check if a client is connected
 if (bleHelper.isConnected()) {
-    // Send sensor data as JSON
     bleHelper.sendMap(sensorData);
 }
 
@@ -422,7 +510,6 @@ if (bleHelper.isPairing()) {
 
 ### Secure Pairing
 
-When a device attempts to pair:
 1. A 6-digit PIN is generated and displayed on the OLED screen
 2. A 30-second countdown timer shows remaining time
 3. User enters the PIN on their phone/device
@@ -437,40 +524,28 @@ The 128x32 SSD1306 OLED display provides visual feedback.
 ### Screen Functions
 
 ```cpp
-// Initialize the display
-bool initScreen();
-
-// Display header and value
-updateScreen("Temperature", "24.5 C", true);
-
-// Display with circular progress indicator (for pairing countdown)
-updateScreenWithProgress("ENTER PIN (25s)", "123-456", 83);
-
-// Clear the display
-clearScreen();
-
-// Control display power (hardware level)
-setDisplayPower(true);   // Turn on
-setDisplayPower(false);  // Turn off
+bool initScreen();                                          // Initialize display
+updateScreen("Temperature", "24.5 C", true);               // Header + value
+updateScreenWithProgress("ENTER PIN (25s)", "123-456", 83); // With countdown arc
+clearScreen();                                              // Clear display
+setDisplayPower(true);                                      // Power on
+setDisplayPower(false);                                     // Power off
 ```
 
 ### DisplayHelper Functions
 
 ```cpp
-// Cycle through all sensor metrics with formatted display
-displaySensorData(sensorData, 2000);  // 2 second per metric
-
-// Show "No Sensors" message
-displayNoSensors();
+displaySensorData(sensorData, 2000);  // Cycle metrics, 2 s each
+displayNoSensors();                   // Show "No Sensors" message
 ```
 
 ### Display Modes
 
 | Mode | Description |
 |------|-------------|
-| Header + Value | Shows title with divider line and large value text |
-| Value Only | Large centered text (when `showHeader = false`) |
-| Progress Mode | Header, value, and circular countdown indicator |
+| Header + Value | Title with divider line and large value text |
+| Value Only | Large centered text (`showHeader = false`) |
+| Progress Mode | Header, value, and circular countdown arc |
 
 ---
 
@@ -480,13 +555,11 @@ A Python-based BLE to MQTT bridge is available for integrating with home automat
 
 ### Python Dependencies
 
-Install the required packages:
-
 ```bash
 pip install -r requirements.txt
 ```
 
-**requirements.txt**:
+**requirements.txt:**
 ```
 bleak>=0.21.0
 aiomqtt>=1.2.0
@@ -505,7 +578,7 @@ Follow these steps to add a new I2C sensor:
 
 ### 1. Create Helper Files
 
-**include/NewSensorHelper.h**:
+**include/NewSensorHelper.h:**
 ```cpp
 #ifndef NEWSENSORHELPER_H
 #define NEWSENSORHELPER_H
@@ -518,11 +591,10 @@ std::map<String, float> getValues_NewSensor(uint8_t addr, bool debug);
 #endif
 ```
 
-**src/NewSensorHelper.cpp**:
+**src/NewSensorHelper.cpp:**
 ```cpp
 #include "NewSensorHelper.h"
 #include <Wire.h>
-// Include sensor library
 
 static bool initialized = false;
 
@@ -533,21 +605,19 @@ std::map<String, float> getValues_NewSensor(uint8_t addr, bool debug) {
     }
 
     std::map<String, float> values;
-    // Read sensor values
     values["measurement"] = sensorValue;
-    
     return values;
 }
 ```
 
 ### 2. Update SensorManager.cpp
 
-Add to includes:
+Add include:
 ```cpp
 #include "NewSensorHelper.h"
 ```
 
-Add wrapper function:
+Add wrapper:
 ```cpp
 static std::map<String, float> readNewSensor(uint8_t addr, bool debug) {
   return getValues_NewSensor(addr, debug);
@@ -562,8 +632,8 @@ static SensorInfo sensors[] = {
 };
 ```
 
-### 3. Done! 
-Your sensor will now be automatically scanned and read.
+### 3. Done!
+Your sensor will now be automatically scanned and read every loop.
 
 ---
 
@@ -573,17 +643,16 @@ Your sensor will now be automatically scanned and read.
 
 | Problem | Solution |
 |---------|----------|
-| **No sensors detected** | Check I2C wiring (SDA to GPIO 21, SCL to GPIO 22). Verify 3.3V power. |
-| **OLED not working** | Confirm I2C address is 0x3C. Check for loose connections. |
+| **No sensors detected** | Check I2C wiring (SDA/SCL). Verify 3.3V power. |
+| **OLED not working** | Confirm I2C address is `0x3C`. Check for loose connections. |
 | **BLE not advertising** | Ensure no other device is connected. Restart the ESP32. |
-| **BLE pairing fails** | Enter PIN within 30 seconds. Ensure phone's Bluetooth is on. |
-| **Button not responding** | Verify button is between GPIO 4 and GND. Check for bad contacts. |
-| **Display stays off** | Press button to wake. Long press to disable auto-sleep. |
+| **BLE pairing fails** | Enter PIN within 30 seconds. Ensure phone Bluetooth is on. |
+| **Button not responding** | Verify button is between GPIO 4 and GND. *(WROOM only)* |
+| **Display stays off** | Press button to wake. Long press to disable auto-sleep. *(WROOM only)* |
 | **Sensor readings are wrong** | Allow sensors to warm up (SGP30 needs 15 seconds). |
+| **Production mode not sleeping** | Ensure you uploaded with `pio run -e production -t upload`. |
 
 ### I2C Scanner
-
-If sensors aren't detected, run an I2C scanner to verify device addresses:
 
 ```cpp
 #include <Wire.h>
@@ -591,7 +660,6 @@ If sensors aren't detected, run an I2C scanner to verify device addresses:
 void setup() {
   Wire.begin(21, 22);
   Serial.begin(115200);
-  
   for (byte addr = 1; addr < 127; addr++) {
     Wire.beginTransmission(addr);
     if (Wire.endTransmission() == 0) {
@@ -605,11 +673,14 @@ void loop() {}
 
 ### Debug Mode
 
-Enable debug output to see detailed sensor readings:
+Enable verbose output to see detailed sensor readings:
 
 ```cpp
-auto data = scanAndReadAllSensors(true);  // Enables verbose output
+auto data = scanAndReadAllSensors(true);  // Verbose output
+auto data = scanAndReadAllSensors(false); // Silent mode
 ```
+
+Or build with `-DDEBUG_MODE=1` for full development experience.
 
 ---
 
@@ -617,22 +688,24 @@ auto data = scanAndReadAllSensors(true);  // Enables verbose output
 
 | Term | Definition |
 |------|------------|
-| **I2C** | Inter-Integrated Circuit - A two-wire serial communication protocol used to connect sensors |
-| **BLE** | Bluetooth Low Energy - A wireless protocol optimized for low power consumption |
-| **SDA** | Serial Data Line - The I2C data signal wire |
-| **SCL** | Serial Clock Line - The I2C clock signal wire |
-| **eCO2** | Equivalent Carbon Dioxide - An estimation of CO2 levels based on VOC measurements (ppm) |
-| **TVOC** | Total Volatile Organic Compounds - Measure of air quality pollutants (ppb) |
-| **lux** | Unit of illuminance measuring light intensity |
-| **hPa** | Hectopascal - Unit of atmospheric pressure (1 hPa = 1 mbar) |
-| **UUID** | Universally Unique Identifier - Used to identify BLE services and characteristics |
-| **OLED** | Organic Light-Emitting Diode - Display technology used for the screen |
+| **I2C** | Inter-Integrated Circuit — two-wire serial communication protocol |
+| **BLE** | Bluetooth Low Energy — wireless protocol optimized for low power |
+| **SDA** | Serial Data Line — I2C data wire |
+| **SCL** | Serial Clock Line — I2C clock wire |
+| **eCO2** | Equivalent Carbon Dioxide — CO2 estimation based on VOC (ppm) |
+| **TVOC** | Total Volatile Organic Compounds — air quality measure (ppb) |
+| **lux** | Unit of illuminance (light intensity) |
+| **hPa** | Hectopascal — atmospheric pressure unit (1 hPa = 1 mbar) |
+| **UUID** | Universally Unique Identifier — identifies BLE services/characteristics |
+| **OLED** | Organic Light-Emitting Diode — display technology |
+| **Light Sleep** | ESP32 low-power mode that preserves RAM, BLE state, and bonding keys |
+| **DEBUG_MODE** | Compile-time flag: `1` = fast dev loop, `0` = power-saving production |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Here's how you can help:
+Contributions are welcome!
 
 1. **Fork** the repository
 2. **Create** a feature branch (`git checkout -b feature/AmazingFeature`)
@@ -646,7 +719,6 @@ Contributions are welcome! Here's how you can help:
 - Add comments for complex logic
 - Update documentation for new features
 - Test on actual hardware when possible
-- Create sensor helpers following the existing pattern
 
 ### Ideas for Contributions
 
@@ -660,37 +732,13 @@ Contributions are welcome! Here's how you can help:
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-```
-MIT License
-
-Copyright (c) 2024 Julian
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 👥 Authors
 
-- **Julian** - *Initial work*
+- **Julian** — *Initial work*
 
 ---
 
@@ -708,6 +756,6 @@ SOFTWARE.
 
 **Made with ❤️ for the IoT community**
 
-[⬆ Back to Top](#slavebox---esp32-sensor-hub-roomsense)
+[⬆ Back to Top](#-slavebox---esp32-sensor-hub-roomsense)
 
 </div>
