@@ -21,9 +21,9 @@
 - [Supported Sensors](#supported-sensors)
 - [Hardware Components](#hardware-components)
 - [Projects](#projects)
-  - [SlaveBox\_XiaoS3 — Primary (XIAO ESP32S3)](#slavebox_xiaos3--primary-xiao-esp32s3)
-  - [SlaveBox — WROOM Alternative](#slavebox--wroom-alternative)
-  - [SlaveBox\_XiaoC3\_Mock — ESP32-C3 Mock Firmware](#slavebox_xiaoc3_mock--esp32-c3-mock-firmware)
+  - [SlaveBox_XiaoS3 — Primary (XIAO ESP32S3)](#slavebox-xiaos3)
+  - [SlaveBox — WROOM Alternative](#slavebox-wroom)
+  - [SlaveBox_XiaoC3_Mock — ESP32-C3 Mock Firmware](#slavebox-xiaoc3-mock)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [Debug Mode vs Production Mode](#debug-mode-vs-production-mode)
@@ -42,6 +42,7 @@
 
 ---
 
+<a id="overview"></a>
 ## 🔍 Overview
 
 SlaveBox (branded as **RoomSense**) is an ESP32-based sensor hub designed for environmental monitoring and data acquisition. It provides a clean, modular architecture for managing multiple I2C sensors simultaneously with automatic scanning, reading, and data aggregation. Data can be transmitted wirelessly via BLE and displayed on an integrated OLED screen.
@@ -67,6 +68,7 @@ The repository contains **three projects**:
 
 ---
 
+<a id="features"></a>
 ## ✨ Features
 
 - **Multi-Sensor Support**: Simultaneously read from multiple I2C sensors
@@ -85,6 +87,7 @@ The repository contains **three projects**:
 
 ---
 
+<a id="supported-sensors"></a>
 ## 🌡️ Supported Sensors
 
 | Sensor | Type | I2C Address | Measurements |
@@ -95,6 +98,7 @@ The repository contains **three projects**:
 
 ---
 
+<a id="hardware-components"></a>
 ## 🔩 Hardware Components
 
 | Component | Description | I2C Address |
@@ -110,8 +114,10 @@ The repository contains **three projects**:
 
 ---
 
+<a id="projects"></a>
 ## 📁 Projects
 
+<a id="slavebox-xiaos3"></a>
 ### SlaveBox\_XiaoS3 — Primary (XIAO ESP32S3)
 
 The main production firmware for the **Seeed Studio XIAO ESP32S3**. Identical feature set to the WROOM version minus the physical button and screen power manager (not yet wired on S3).
@@ -121,6 +127,7 @@ The main production firmware for the **Seeed Studio XIAO ESP32S3**. Identical fe
 
 ---
 
+<a id="slavebox-wroom"></a>
 ### SlaveBox — WROOM Alternative
 
 The original firmware targeting the **ESP32 WROOM** dev board. Adds a physical button on GPIO 4 for:
@@ -133,6 +140,7 @@ The original firmware targeting the **ESP32 WROOM** dev board. Adds a physical b
 
 ---
 
+<a id="slavebox-xiaoc3-mock"></a>
 ### SlaveBox\_XiaoC3\_Mock — ESP32-C3 Mock Firmware
 
 A **complete mock firmware** for the **Seeed Studio XIAO ESP32-C3** that emulates the full behaviour of the real firmware without needing physical I2C sensors attached.
@@ -155,6 +163,7 @@ A **complete mock firmware** for the **Seeed Studio XIAO ESP32-C3** that emulate
 
 ---
 
+<a id="project-structure"></a>
 ## 📁 Project Structure
 
 ```
@@ -180,6 +189,7 @@ SlaveBoxCode/
 
 ---
 
+<a id="getting-started"></a>
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -255,6 +265,7 @@ SlaveBoxCode/
 
 ---
 
+<a id="debug-mode-vs-production-mode"></a>
 ## 🐛 Debug Mode vs Production Mode
 
 Both real projects (`SlaveBox` and `SlaveBox_XiaoS3`) support two compile-time build modes controlled by the `DEBUG_MODE` preprocessor flag.
@@ -304,6 +315,7 @@ build_flags =
 
 ---
 
+<a id="usage"></a>
 ## 💻 Usage
 
 ### Basic Example
@@ -426,6 +438,7 @@ std::map<String, float> getValues_BH1750(uint8_t addr, bool debug);
 
 ---
 
+<a id="button-controls--power-management"></a>
 ## 🔘 Button Controls & Power Management
 
 > *(WROOM variant only — `SlaveBox/`)*
@@ -478,6 +491,7 @@ if (screenPowerManager.isAlwaysOn()) { ... }
 
 ---
 
+<a id="ble-communication"></a>
 ## 📡 BLE Communication
 
 SlaveBox includes a BLE server for wireless data transmission.
@@ -517,6 +531,7 @@ if (bleHelper.isPairing()) {
 
 ---
 
+<a id="oled-display"></a>
 ## 🖥️ OLED Display
 
 The 128x32 SSD1306 OLED display provides visual feedback.
@@ -549,6 +564,7 @@ displayNoSensors();                   // Show "No Sensors" message
 
 ---
 
+<a id="python-ble-bridge"></a>
 ## 🐍 Python BLE Bridge
 
 A Python-based BLE to MQTT bridge is available for integrating with home automation systems.
@@ -572,6 +588,7 @@ aiomqtt>=1.2.0
 
 ---
 
+<a id="adding-new-sensors"></a>
 ## 🔧 Adding New Sensors
 
 Follow these steps to add a new I2C sensor:
@@ -637,6 +654,7 @@ Your sensor will now be automatically scanned and read every loop.
 
 ---
 
+<a id="troubleshooting"></a>
 ## ❓ Troubleshooting
 
 ### Common Issues
@@ -684,6 +702,7 @@ Or build with `-DDEBUG_MODE=1` for full development experience.
 
 ---
 
+<a id="glossary"></a>
 ## 📖 Glossary
 
 | Term | Definition |
@@ -703,6 +722,7 @@ Or build with `-DDEBUG_MODE=1` for full development experience.
 
 ---
 
+<a id="contributing"></a>
 ## 🤝 Contributing
 
 Contributions are welcome!
@@ -730,18 +750,21 @@ Contributions are welcome!
 
 ---
 
+<a id="license"></a>
 ## 📜 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
+<a id="authors"></a>
 ## 👥 Authors
 
 - **Julian** — *Initial work*
 
 ---
 
+<a id="acknowledgments"></a>
 ## 🙏 Acknowledgments
 
 - Adafruit for sensor and display libraries
