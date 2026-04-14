@@ -66,11 +66,19 @@ void pairingTimerTask(void* parameter) {
     snprintf(pinStr,     sizeof(pinStr),     "%06lu", (unsigned long)(currentPassKey % 1000000));
     snprintf(displayStr, sizeof(displayStr), "%.3s-%.3s", pinStr, pinStr + 3);
 
+    int ticksPerSecond = 4;  // 250 ms per frame
     while (pairingInProgress && remainingFrames > 0) {
         int percentage       = (remainingFrames * 100) / totalFrames;
         int remainingSeconds = (remainingFrames + 3) / 4;
         snprintf(headerStr, sizeof(headerStr), "ENTER PIN (%ds)", remainingSeconds);
         updateScreenWithProgress(String(headerStr), String(displayStr), percentage);
+
+        // Reprint PIN to serial once per second so it stays visible
+        if (remainingFrames % ticksPerSecond == 0) {
+            Serial.printf(">>> BLE PIN: %s (%ds remaining) <<<\n",
+                          displayStr, remainingSeconds);
+        }
+
         remainingFrames--;
         vTaskDelay(250 / portTICK_PERIOD_MS);
     }
@@ -87,8 +95,9 @@ class MockSecurity : public BLESecurityCallbacks {
     uint32_t onPassKeyRequest() override { return 123456; }
 
     void onPassKeyNotify(uint32_t pass_key) override {
-        // Print ONLY the PIN — nothing else
-        Serial.printf("%06d\n", pass_key);
+        // Clear line + print labelled PIN before suppression kicks in
+        Serial.printf("\n>>> BLE PIN: %06d <<<\n", pass_key);
+        Serial.flush();
         startPairingTimer(pass_key);
     }
 
@@ -98,10 +107,10 @@ class MockSecurity : public BLESecurityCallbacks {
     void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) override {
         stopPairingTimer();
         if (cmpl.success) {
-            Serial.println("✅ Pairing Successful");
+            Serial.println("\n>>> Pairing Successful — resuming sensor output <<<");
             updateScreen("PAIRING", "SUCCESS!", true);
         } else {
-            Serial.println("❌ Pairing Failed");
+            Serial.println("\n>>> Pairing Failed <<<");
             updateScreen("PAIRING", "FAILED!", true);
         }
     }
